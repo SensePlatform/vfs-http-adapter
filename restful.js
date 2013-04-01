@@ -67,10 +67,18 @@ module.exports = function setup(mount, vfs, mountOptions) {
     if (mount[mount.length - 1] !== "/") mount += "/";
 
     var path = unescape(req.uri.pathname);
+    
     // no need to sanitize the url (remove ../..) the vfs layer has this
     // responsibility since it can do it better with realpath.
     if (path.substr(0, mount.length) !== mount) { return next(); }
     path = path.substr(mount.length - 1);
+
+    // Allow for proxy header.
+    if (req.headers.hasOwnProperty("vfs-remote-path")) {
+      var base = req.headers['vfs-remote-path'];
+    } else {
+      var base = (req.socket.encrypted ? "https://" : "http://") + req.headers.host + pathJoin(mount, path);
+    }
 
     // Instead of using next for errors, we send a custom response here.
     function abort(err, code) {
@@ -147,7 +155,6 @@ module.exports = function setup(mount, vfs, mountOptions) {
         if (meta.hasOwnProperty('stream')) {
           meta.stream.on("error", abort);
           if (options.encoding === null) {
-            var base = (req.socket.encrypted ? "https://" : "http://") + req.headers.host + pathJoin(mount, path);
             jsonEncoder(meta.stream, base).pipe(res);
           } else {
             meta.stream.pipe(res);
