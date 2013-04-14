@@ -1,3 +1,4 @@
+var fs = require('fs');
 var urlParse = require('url').parse;
 var multipart = require('./multipart');
 var Stream = require('stream').Stream;
@@ -67,12 +68,12 @@ module.exports = function setup(mount, vfs, mountOptions) {
     if (mount[mount.length - 1] !== "/") mount += "/";
 
     var path = unescape(req.uri.pathname);
-    
+        
     // no need to sanitize the url (remove ../..) the vfs layer has this
     // responsibility since it can do it better with realpath.
     if (path.substr(0, mount.length) !== mount) { return next(); }
     path = path.substr(mount.length - 1);
-
+    
     // Allow for proxy header.
     if (req.headers.hasOwnProperty("vfs-remote-path")) {
       var base = req.headers['vfs-remote-path'];
@@ -173,15 +174,15 @@ module.exports = function setup(mount, vfs, mountOptions) {
     } // end GET request
 
     else if (req.method === "PUT") {
-
       if (path[path.length - 1] === "/") {
         vfs.mkdir(path, {}, function (err, meta) {
           if (err) return abort(err);
           res.end();
         });
       } else {
-
-        vfs.mkfile(path, { stream: req }, function (err, meta) {
+        // FIXME: This causes a double write but with auth, the req stream stops being readable.
+        var stream = fs.createReadStream(req.files['file-1'].path);
+        vfs.mkfile(path, { stream: stream }, function (err, meta) {
           if (err) return abort(err);
           res.end();
         });
@@ -241,17 +242,7 @@ module.exports = function setup(mount, vfs, mountOptions) {
         return;
       }
 
-      var data = "";
-      req.on("data", function (chunk) {
-        data += chunk;
-      });
-      req.on("end", function () {
-        var message;
-        try {
-          message = JSON.parse(data);
-        } catch (err) {
-          return abort(err);
-        }
+      function processMessage(message) {
         var command, options = {};
         if (message.renameFrom) {
           command = vfs.rename;
@@ -268,11 +259,30 @@ module.exports = function setup(mount, vfs, mountOptions) {
         else {
           return abort(new Error("Invalid command in POST " + data));
         }
+        console.log(path, options);
         command(path, options, function (err, meta) {
           if (err) return abort(err);
           res.end();
         });
-      });
+      }
+
+      if (req.readable) {
+        var data = "";
+        req.on("data", function (chunk) {
+          data += chunk;
+        });
+        req.on("end", function () {
+          var message;
+          try {
+            message = JSON.parse(data);
+          } catch (err) {
+            return abort(err);
+          }
+          processMessage(message);
+        });        
+      } else {
+        processMessage(req.body);
+      }
     } // end POST commands
     else if (req.method === "PROPFIND") {
       vfs.stat(path, {}, function (err, meta) {
