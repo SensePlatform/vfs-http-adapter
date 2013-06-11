@@ -31,9 +31,9 @@ module.exports = function setup(mount, vfs, mountOptions) {
       if (path) {
         entry.href = path + entry.name;
         var mime = entry.linkStat ? entry.linkStat.mime : entry.mime;
-        if (mime.match(/(directory|folder)$/)) {
-          entry.href += "/";
-        }
+        // if (mime.match(/(directory|folder)$/)) {
+        //   entry.href += "/";
+        // }
       }
       if (first) {
         output.emit("data", "[\n  " + JSON.stringify(entry));
@@ -111,18 +111,23 @@ module.exports = function setup(mount, vfs, mountOptions) {
 
       var tryAgain;
 
-      if (path[path.length - 1] === "/") {
-        if (mountOptions.autoIndex) {
-          tryAgain = true;
-          vfs.readfile(path + mountOptions.autoIndex, options, onGet);
+      vfs.stat(path, {}, function(err, meta) {
+        if(err) {
+          return onGet(err);
         }
-        else {
-          options.encoding = null;
-          vfs.readdir(path, options, onGet);
+        if (meta.mime.match(/(directory|folder)$/)) {
+          if (mountOptions.autoIndex) {
+            tryAgain = true;
+            vfs.readfile(path + mountOptions.autoIndex, options, onGet);
+          }
+          else {
+            options.encoding = null;
+            vfs.readdir(path, options, onGet);
+          }
+        } else {
+          vfs.readfile(path, options, onGet);
         }
-      } else {
-        vfs.readfile(path, options, onGet);
-      }
+      });
 
       function onGet(err, meta) {
         res.setHeader("Date", (new Date()).toUTCString());
