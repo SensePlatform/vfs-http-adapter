@@ -23,17 +23,19 @@ module.exports = function setup(mount, vfs, mountOptions) {
   };
 
   // Returns a json stream that wraps input object stream
-  function jsonEncoder(input, path) {
+  function jsonEncoder(input, path, htmlPath) {
     var output = new Stream();
     output.readable = true;
     var first = true;
     input.on("data", function (entry) {
       if (path) {
-        entry.href = path + entry.name;
+        entry.url = path + entry.name;
+        entry.html_url = htmlPath + entry.name;
         var mime = entry.linkStat ? entry.linkStat.mime : entry.mime;
-        // if (mime.match(/(directory|folder)$/)) {
-        //   entry.href += "/";
-        // }
+        if (mime.match(/(directory|folder)$/)) {
+          entry.url += "/";
+          entry.html_url += "/";
+        }
       }
       if (first) {
         output.emit("data", "[\n  " + JSON.stringify(entry));
@@ -75,8 +77,9 @@ module.exports = function setup(mount, vfs, mountOptions) {
     path = path.substr(mount.length - 1);
     
     // Allow for proxy header.
-    if (req.headers.hasOwnProperty("vfs-remote-path")) {
-      var base = req.headers['vfs-remote-path'];
+    if (req.headers.hasOwnProperty("vfs-url")) {
+      var base = req.headers['vfs-url'];
+      var htmlBase = req.headers['vfs-html-url'];
     } else {
       var base = (req.socket.encrypted ? "https://" : "http://") + req.headers.host + pathJoin(mount, path);
     }
@@ -111,23 +114,18 @@ module.exports = function setup(mount, vfs, mountOptions) {
 
       var tryAgain;
 
-      vfs.stat(path, {}, function(err, meta) {
-        if(err) {
-          return onGet(err);
+      if (path[path.length - 1] === "/") {
+        if (mountOptions.autoIndex) {
+          tryAgain = true;
+          vfs.readfile(path + mountOptions.autoIndex, options, onGet);
         }
-        if (meta.mime.match(/(directory|folder)$/)) {
-          if (mountOptions.autoIndex) {
-            tryAgain = true;
-            vfs.readfile(path + mountOptions.autoIndex, options, onGet);
-          }
-          else {
-            options.encoding = null;
-            vfs.readdir(path, options, onGet);
-          }
-        } else {
-          vfs.readfile(path, options, onGet);
+        else {
+          options.encoding = null;
+          vfs.readdir(path, options, onGet);
         }
-      });
+      } else {
+        vfs.readfile(path, options, onGet);
+      }
 
       function onGet(err, meta) {
         res.setHeader("Date", (new Date()).toUTCString());
@@ -161,7 +159,7 @@ module.exports = function setup(mount, vfs, mountOptions) {
         if (meta.hasOwnProperty('stream')) {
           meta.stream.on("error", abort);
           if (options.encoding === null) {
-            jsonEncoder(meta.stream, base).pipe(res);
+            jsonEncoder(meta.stream, base, htmlBase).pipe(res);
           } else {
             meta.stream.pipe(res);
           }
