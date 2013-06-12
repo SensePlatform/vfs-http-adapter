@@ -184,7 +184,8 @@ module.exports = function setup(mount, vfs, mountOptions) {
         });
       } else {
         // FIXME: This causes a double write but with auth, the req stream stops being readable.
-        var stream = fs.createReadStream(req.files['file-1'].path);
+        console.log(req.files);
+        var stream = fs.createReadStream(req.files['files'][0].path);
         vfs.mkfile(path, { stream: stream }, function (err, meta) {
           if (err) return abort(err);
           res.end();
