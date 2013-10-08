@@ -189,6 +189,9 @@ module.exports = function setup(mount, vfs, mountOptions) {
         vfs.mkfile(path, { stream: stream }, function (err, meta) {
           if (err) return abort(err);
           res.end();
+          fs.unlink(req.files['files'][0].path, function(err){
+            console.log("Cannot delete ", req.files['files'][0].path);
+          });
         });
       }
     } // end PUT request
