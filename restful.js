@@ -32,7 +32,7 @@ module.exports = function setup(mount, vfs, mountOptions) {
         entry.url = path + entry.name;
         entry.html_url = htmlPath + entry.name;
         var mime = entry.linkStat ? entry.linkStat.mime : entry.mime;
-        if (mime.match(/(directory|folder)$/)) {
+        if ((mime || "").match(/(directory|folder)$/)) {
           entry.url += "/";
           entry.html_url += "/";
         }
