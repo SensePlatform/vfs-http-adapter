@@ -189,7 +189,7 @@ module.exports = function setup(mount, vfs, mountOptions) {
           return res.status(422).end();
         }
         var stream = fs.createReadStream(req.files['files'][0].path);
-        vfs.mkfile(path, { stream: stream }, function (err, meta) {
+        vfs.mkfile(path, { stream: stream, parents: true }, function (err, meta) {
           if (err) return abort(err);
           res.end();
           // fs.unlink(req.files['files'][0].path, function(err) {
