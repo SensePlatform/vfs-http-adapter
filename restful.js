@@ -29,8 +29,8 @@ module.exports = function setup(mount, vfs, mountOptions) {
     var first = true;
     input.on("data", function (entry) {
       if (path) {
-        entry.url = path + entry.name;
-        entry.html_url = htmlPath + entry.name;
+        entry.url = path + encodeURIComponent(entry.name);
+        entry.html_url = htmlPath + encodeURIComponent(entry.name);
         var mime = entry.linkStat ? entry.linkStat.mime : entry.mime;
         if ((mime || "").match(/(directory|folder)$/)) {
           entry.url += "/";
