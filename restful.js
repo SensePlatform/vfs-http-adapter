@@ -70,12 +70,12 @@ module.exports = function setup(mount, vfs, mountOptions) {
     if (mount[mount.length - 1] !== "/") mount += "/";
 
     var path = unescape(req.uri.pathname);
-        
+
     // no need to sanitize the url (remove ../..) the vfs layer has this
     // responsibility since it can do it better with realpath.
     if (path.substr(0, mount.length) !== mount) { return next(); }
     path = path.substr(mount.length - 1);
-    
+
     // Allow for proxy header.
     if (req.headers.hasOwnProperty("vfs-url")) {
       var base = req.headers['vfs-url'];
@@ -160,7 +160,10 @@ module.exports = function setup(mount, vfs, mountOptions) {
           meta.stream.on("error", abort);
           if (options.encoding === null) {
             jsonEncoder(meta.stream, base, htmlBase).pipe(res);
-          } else {
+          } else if (typeof mountOptions.responseWrapper === 'function'){
+            mountOptions.responseWrapper(meta.stream, res);
+          }
+          else {
             meta.stream.pipe(res);
           }
           req.on("close", function () {
@@ -291,7 +294,7 @@ module.exports = function setup(mount, vfs, mountOptions) {
             return abort(err);
           }
           processMessage(message);
-        });        
+        });
       } else {
         processMessage(req.body);
       }
@@ -310,4 +313,3 @@ module.exports = function setup(mount, vfs, mountOptions) {
   };
 
 };
-
